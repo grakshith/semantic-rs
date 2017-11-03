@@ -3,5 +3,8 @@ toy
 lex.yy.c
 bin/
 build/
+parser.tab.h
+parser.tab.c
+parser.output
 
 

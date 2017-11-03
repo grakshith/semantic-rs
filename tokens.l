@@ -11,7 +11,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
-#include "tokens.h"
+
 static int num_hashes;
 static int end_hashes;
 static int saw_non_hash;
