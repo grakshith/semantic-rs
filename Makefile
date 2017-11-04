@@ -35,7 +35,7 @@ $(BUILD_DIR)/parser_main.o: parser_main.c
 $(BUILD_DIR)/lexer_p.o: lex.yy.c parser.tab.h
 	$(CC) -include parser.tab.h -c -o $@ $<
 
-parser.tab.c: parser.y
+parser.tab.c parser.tab.h: parser.y
 	$(BISON) $< -d -p rs -v --report=all --warnings=error=all
 
 clean:
