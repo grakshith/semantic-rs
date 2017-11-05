@@ -1,4 +1,7 @@
 CC=gcc
+CXX=g++
+CXXFLAGS= -Wno-write-strings -std=c++11 -g
+# CXXFLAGS = 
 LDFLAGS=-lfl -lm
 BIN_DIR=bin
 BUILD_DIR=build
@@ -24,19 +27,19 @@ $(BUILD_DIR)/lexer.o: lex.yy.c tokens.h
 	$(CC) -include tokens.h -c -o $@ $<
 
 parser: $(BUILD_DIR)/parser.o $(BUILD_DIR)/parser_main.o $(BUILD_DIR)/lexer_p.o
-	$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(CXXFLAGS) $(LDFLAGS)
 
-$(BUILD_DIR)/parser.o: parser.tab.c
-	$(CC) -c -o $@ $^
+$(BUILD_DIR)/parser.o: parser.tab.cc
+	$(CXX) -c -o $@ $^ $(CXXFLAGS)
 
-$(BUILD_DIR)/parser_main.o: parser_main.c
-	$(CC) -std=c99 -c -o $@ $<
+$(BUILD_DIR)/parser_main.o: parser_main.cc
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
-$(BUILD_DIR)/lexer_p.o: lex.yy.c parser.tab.h
-	$(CC) -include parser.tab.h -c -o $@ $<
+$(BUILD_DIR)/lexer_p.o: lex.yy.c parser.tab.hh
+	$(CXX) -include parser.tab.hh -c -o $@ $< $(CXXFLAGS)
 
-parser.tab.c parser.tab.h: parser.y
-	$(BISON) $< -d -p rs -v --report=all --warnings=error=all
+parser.tab.cc parser.tab.hh: parser.y
+	$(BISON) -o $@ $< -d -p rs -v --report=all --warnings=error=all
 
 clean:
-	rm -f $(BIN_DIR)/* $(BUILD_DIR)/* lex.yy.c parser.tab.c parser.tab.h parser.output
+	rm -f $(BIN_DIR)/* $(BUILD_DIR)/* lex.yy.c parser.tab.cc parser.tab.hh parser.output
