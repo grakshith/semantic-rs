@@ -7,6 +7,8 @@
 #include <map>
 #include <iostream>
 #include <iomanip>
+#include <vector>
+#include <sstream>
 
 using namespace std;
 
@@ -17,6 +19,27 @@ extern int rsparse();
 
 static char pushback[PUSHBACK_LEN];
 static int verbose;
+
+map<string,string> id_map = {
+  {"i8","integer"},
+  {"i16","integer"},
+  {"i32","integer"},
+  {"i64","integer"},
+  {"u8","integer"},
+  {"u16","integer"},
+  {"u32","integer"},
+  {"u64","integer"},
+  {"f32","float"},
+  {"f64","float"},
+  {"LitStr","string"},
+  {"LitBool","bool"},
+  {"LitFloat","float"},
+  {"LitInteger","integer"},
+  {"bool", "bool"}
+};
+
+vector<string> semantic_errors;
+
 
 void print(const char* format, ...) {
   va_list args;
@@ -219,16 +242,28 @@ void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *
   else if(strcmp(n->name, "DeclLocal")==0){
     string name = find_in_ast(n->elems[0],"ident");
     string type = find_in_ast(n->elems[1], "ident");
-    string infer = find_in_ast(n->elems[2], "ExprLit");
-    if(!type.size()){
+    if(n->elems[2]->name=="ExprLit")
+      string infer = find_in_ast(n->elems[2], "ExprLit");
+    else{
+      
+    }
+    if(type.size()==0){
       type = infer;
     }
+    else{
+      if(id_map[type]!=id_map[infer]){
+        stringstream ss;
+        ss<<"Declaration of "<<name<<" invalid, types mismatch"<<endl;
+        semantic_errors.push_back(ss.str());
+      }
+    }
+    type = id_map[infer];
     status=insert_symbol(table, name, type, scope);
   }
   else if(strcmp(n->name, "ExprAssign")==0){
     string name = find_in_ast(n->elems[0],"ident");
     string type = find_in_ast(n->elems[1], "ExprLit");
-    status=insert_symbol(table, name, type, scope);
+    status=insert_symbol(table, name, id_map[type], scope);
   }
   if(new_scope){
     table = new_scope;
@@ -264,6 +299,12 @@ void print_node(struct node *n, int depth) {
   }
 }
 
+void print_semantic_errors(){
+  for(auto i: semantic_errors){
+    cout<<i;
+  }
+}
+
 int main(int argc, char **argv) {
   if (argc == 2 && strcmp(argv[1], "-v") == 0) {
     verbose = 1;
@@ -277,14 +318,15 @@ int main(int argc, char **argv) {
   global_sym_table = new sym_table();
   global_sym_table->parent = NULL;
   ret = rsparse();
-  printf("Building symbol table with root %p\n",global_sym_table);
-  build_sym_table(global_sym_table, nodes, global_sym_table);
-  print_symbol_table(global_sym_table,0);
-  printf("%ld\n",global_sym_table->symbols.size());
   print("--- PARSE COMPLETE: ret:%d, n_nodes:%d ---\n", ret, n_nodes);
   if (nodes) {
     print_node(nodes, 0);
   }
+  printf("Building symbol table with root %p\n",global_sym_table);
+  build_sym_table(global_sym_table, nodes, global_sym_table);
+  print_symbol_table(global_sym_table,0);
+  printf("No. of semantic errors : %ld\n",semantic_errors.size());
+  print_semantic_errors();
   while (nodes) {
     tmp = nodes;
     nodes = tmp->next;
