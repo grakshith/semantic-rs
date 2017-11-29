@@ -1,0 +1,29 @@
+fn main() {
+    let x = "asd";
+    let logical: bool = true;
+    let z = makx+x+x+x+x+x+a;
+    let a_float: i64 = 1.0;  // Regular annotation
+    z=x+1+y; // Suffix annotation
+    let y=x+a;
+    let default_float   = 3.0; //
+    let default_integer = 7;   //
+
+    // A type can also be inferred from context
+    let mut inferred_type = 12; // Type i64 is inferred from another line
+    inferred_type = 4294967296i64;
+
+    // A mutable variable's value can be changed.
+    let mut mutable = 12; // Mutable
+    mutable = 21;
+
+    // Error! The type of a variable can't be changed.
+    mutable = true;
+
+    // Variables can be overwritten with shadowing.
+    let mutable = true;
+}
+
+fn main2(){
+let x=2;
+}
+
