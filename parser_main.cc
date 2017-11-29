@@ -186,7 +186,8 @@ bool insert_symbol(struct sym_table *table, string name, string type, struct sym
 }
 
 string lookup_table(struct sym_table *table, string name){
-  while(table){
+  cout<<name<<endl;
+  while(table && name.size()){
     for(auto it = table->symbols.begin(); it!=table->symbols.end(); it++){
       if(name==it->first){
         return it->second.second;
@@ -195,7 +196,11 @@ string lookup_table(struct sym_table *table, string name){
     //Static scoping
     table = table->parent;
   }
-  return "id_not_found";
+  string empty;
+  stringstream ss;
+  ss<<"Identifier "<<name<<" not found"<<endl;
+  semantic_errors.push_back(ss.str());
+  return empty;
 }
 
 struct sym_table *global_sym_table;
@@ -231,6 +236,43 @@ string find_in_ast(struct node *n, string key){
 
 }
 
+int  expr_bin_type_check(struct sym_table *table, struct node *root, vector<string> &types){
+  for(int i=0;i<root->n_elems;i++){
+    if(strcmp(root->elems[i]->name, "ExprBinary")==0){
+      int ret = expr_bin_type_check(table, root->elems[1], types);
+      if(!ret)
+        return ret;
+    }
+    else if(strcmp(root->elems[i]->name, "ExprPath")==0){
+      // ident 1
+      // cout<<root->elems[1]->name<<endl;
+      string ident = find_in_ast(root->elems[1], "ident");
+      string type = lookup_table(table, ident);
+      if(!type.size()){
+        return 0;
+      }
+      types.push_back(type);
+      // ident 2
+      string ident2 = find_in_ast(root->elems[2], "ident");
+      //string lit = find_in_ast(root->elems[2],)
+      string type2 = lookup_table(table, ident2);
+      if(!type2.size()){
+        return 0;
+      }
+      types.push_back(type2);
+      return 1;
+    }
+    else if(strcmp(root->elems[i]->name, "ExprLit")==0){
+      string type = find_in_ast(root->elems[i],"ExprLit");
+      string type2 = find_in_ast(root->elems[i+1], "ExprLit");
+      if(type != type2){
+        return 0;
+      }
+    }
+
+  }
+}
+
 void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *scope){
   struct sym_table *new_scope=NULL;
   bool status;
@@ -240,30 +282,85 @@ void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *
     status=insert_symbol(table, n->elems[0]->elems[0]->name,"func_decl",new_scope);
   }
   else if(strcmp(n->name, "DeclLocal")==0){
+    int flag=1;
     string name = find_in_ast(n->elems[0],"ident");
     string type = find_in_ast(n->elems[1], "ident");
-    if(n->elems[2]->name=="ExprLit")
-      string infer = find_in_ast(n->elems[2], "ExprLit");
-    else{
-      
-    }
-    if(type.size()==0){
+    string infer = find_in_ast(n->elems[2], "ExprLit");
+    if(type.size()==0 && infer.size()!=0){
       type = infer;
     }
+    else if(infer.size()==0)
+      flag=0;
     else{
       if(id_map[type]!=id_map[infer]){
+        flag=0;
         stringstream ss;
         ss<<"Declaration of "<<name<<" invalid, types mismatch"<<endl;
         semantic_errors.push_back(ss.str());
       }
     }
-    type = id_map[infer];
-    status=insert_symbol(table, name, type, scope);
+    if(strcmp(n->elems[2]->name,"ExprBinary")==0){
+      vector<string> types;
+      int ret = expr_bin_type_check(table, n->elems[2], types);
+      //set flag according to ret
+      flag = flag && ret;
+      if(ret==1)
+      {
+        for(int i=0;i<types.size()-1;i++){
+          if(id_map[types[i]]!=id_map[types[i+1]]){
+            flag=0;
+            stringstream ss;
+            ss<<"Expression involving declaration of "<<name<<" is invalid"<<endl;
+            semantic_errors.push_back(ss.str());
+          }
+        }
+      }
+    }
+    type = id_map[type];
+    if(flag){
+      status=insert_symbol(table, name, type, scope);
+    }
   }
   else if(strcmp(n->name, "ExprAssign")==0){
+    int flag = 1;
     string name = find_in_ast(n->elems[0],"ident");
-    string type = find_in_ast(n->elems[1], "ExprLit");
-    status=insert_symbol(table, name, id_map[type], scope);
+    string status = lookup_table(table, name);
+    if(!status.size())
+      flag=0;
+    string type, ident;
+    if(strcmp(n->elems[1]->name, "ExprLit")==0)
+      type = find_in_ast(n->elems[1], "ExprLit");
+    if(strcmp(n->elems[1]->name, "ExprPath")==0){
+      ident = find_in_ast(n->elems[1]->elems[0], "ident");
+      cout<<"Looking up "<<ident<<endl; 
+      string type = lookup_table(table, ident);
+      if(!type.size())
+        flag=0;
+    }
+    if(strcmp(n->elems[1]->name, "ExprBinary")==0){
+      vector<string> types;
+      int ret = expr_bin_type_check(table, n->elems[1],types);
+      if(!ret){
+        flag=0;
+        stringstream ss;
+        ss<<"Invalid types for binary operation during assignment of "<<name<<endl;
+        semantic_errors.push_back(ss.str());
+      }
+      else if(ret==1)
+      {
+        for(int i=0;i<types.size()-1;i++){
+          if(id_map[types[i]]!=id_map[types[i+1]]){
+            flag=0;
+            stringstream ss;
+            ss<<"Expression involving declaration of "<<name<<" is invalid"<<endl;
+            semantic_errors.push_back(ss.str());
+          }
+        }
+      }
+    }
+    if(flag){
+      insert_symbol(table, name, id_map[type], scope);
+    }
   }
   if(new_scope){
     table = new_scope;
