@@ -183,9 +183,11 @@ struct sym_table{
 };
 
 bool insert_symbol(struct sym_table *table, string name, string type, struct sym_table *child){
-  // if(child){
-  //   table = child;
+  // cout<<table<<"   "<<child<<"   "<<name<<endl;
+  // if(table!=child){
+  //   child=table;
   // }
+
   auto res_pair = table->symbols.insert(make_pair(name,make_pair(child,type)));
   return res_pair.second;
 }
@@ -298,46 +300,109 @@ void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *
     new_scope->parent = table;
     status=insert_symbol(table, n->elems[0]->elems[0]->name,"func_decl",new_scope);
   }
-  else if(strcmp(n->name, "DeclLocal")==0){
-    int flag=1;
-    string name = find_in_ast(n->elems[0],"ident");
-    string type = find_in_ast(n->elems[1], "ident");
-    string infer = find_in_ast(n->elems[2], "ExprLit");
-    if(type.size()==0 && infer.size()!=0){
-      type = infer;
-    }
-    else if(infer.size()==0)
-      flag=0;
-    else{
-      if(id_map[type]!=id_map[infer]){
-        flag=0;
-        stringstream ss;
-        ss<<"Declaration of "<<name<<" invalid, types mismatch"<<endl;
-        semantic_errors.push_back(ss.str());
-      }
-    }
-    if(strcmp(n->elems[2]->name,"ExprBinary")==0){
-      vector<string> types;
-      int ret = expr_bin_type_check(table, n->elems[2], types);
-      //set flag according to ret
-      flag = flag && ret;
-      if(ret==1)
-      {
-        for(int i=0;i<types.size()-1;i++){
-          if(id_map[types[i]]!=id_map[types[i+1]]){
-            flag=0;
-            stringstream ss;
-            ss<<"Expression involving declaration of "<<name<<" is invalid"<<endl;
-            semantic_errors.push_back(ss.str());
-          }
+else if(strcmp(n->name, "DeclLocal")==0){
+        int flag=1;
+        string name = find_in_ast(n->elems[0],"ident");
+        string type = find_in_ast(n->elems[1], "ident");
+        
+        if(type.size()!=0&&id_map.find(type)==id_map.end())
+        {
+          flag=0;
+          stringstream ss;
+          ss<<"Invalid type "<<type<<" in declaration of "<<name<<endl;
+          semantic_errors.push_back(ss.str());
+
+        }
+
+        else
+        {
+          type = id_map[type];
+        if(strcmp(n->elems[2]->name,"ExprLit")==0){
+              string infer = find_in_ast(n->elems[2], "ExprLit");//inferred type
+              if(type.size()==0 && infer.size()!=0){
+                type = infer;
+              }
+              else if(type.size()==0&&infer.size()==0)
+                flag=0; //dont insert into symbol table
+              else{
+                if(id_map[type]!=id_map[infer]){
+                  flag=0;
+                  stringstream ss;
+                  ss<<"Declaration of "<<name<<" invalid, types mismatch"<<endl;
+                  semantic_errors.push_back(ss.str());
+                }
         }
       }
-    }
-    type = id_map[type];
-    if(flag){
-      status=insert_symbol(table, name, type, scope);
-    }
-  }
+        if(strcmp(n->elems[2]->name,"ExprBinary")==0){
+          cout<<"in binary expression\n";
+          vector<string> types;
+          int ret = expr_bin_type_check(table, n->elems[2], types);
+
+          int flag_no_right_type=1;
+          if(types.size()==0)
+          {
+            flag=0;
+            flag_no_right_type=0;
+            stringstream ss;
+            ss<<"Invalid declaration of "<<name<<endl;
+            semantic_errors.push_back(ss.str());
+
+            
+          }
+          
+          else
+          {
+          //fills the type vector with all the types of the 
+          // variables in the expression
+          //set flag according to ret
+            flag = flag && ret;
+            int rhs_type_flag=1;
+            if(ret==1)
+            {
+              for(int i=0;i<types.size()-1;i++){
+                if(id_map[types[i]]!=id_map[types[i+1]]){
+                  flag=0;
+                  rhs_type_flag=0;
+                  stringstream ss;
+                  ss<<"Expression involving declaration of "<<name<<" is invalid"<<endl;
+                  semantic_errors.push_back(ss.str());
+                }
+              }
+            }
+
+            // &&(type.size()!=0)&&(!(id_map[type]==types[0]))
+
+            if (rhs_type_flag)
+            {
+              if(type.size()==0)
+              {
+                type = types[0];
+              }
+
+              else if (id_map[type] != types[0])
+              {
+              flag=0;
+              stringstream ss;
+              ss<<"Type mis match in declaration of "<<name<<" LHS TYPE "<<type<<"RHS TYPE "<<types[0]<<endl;
+              semantic_errors.push_back(ss.str());
+              }
+            
+            }
+           }
+          }
+
+        }
+        
+        if(flag)
+        {
+          type = id_map[type];
+          status=insert_symbol(table, name, type, scope);
+        
+        }
+
+        
+  
+}
   else if(strcmp(n->name, "ExprAssign")==0){
     int flag = 1;
     string name = find_in_ast(n->elems[0],"ident");
