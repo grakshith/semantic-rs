@@ -245,10 +245,9 @@ string find_in_ast(struct node *n, string key){
 int  expr_bin_type_check(struct sym_table *table, struct node *root, vector<string> &types){
   //returns zero in case of error, 1 otherwise
 
-
   for(int i=0;i<root->n_elems;i++){
     if(strcmp(root->elems[i]->name, "ExprBinary")==0){
-      int ret = expr_bin_type_check(table, root->elems[1], types);
+      int ret = expr_bin_type_check(table, root->elems[i], types);
       if(!ret)
         return ret;
     }
@@ -277,7 +276,6 @@ int  expr_bin_type_check(struct sym_table *table, struct node *root, vector<stri
       //   return 0;
       // }
       // types.push_back(type2);
-      return 1;
     }
     else if(strcmp(root->elems[i]->name, "ExprLit")==0){
       string type = id_map[find_in_ast(root->elems[i],"ExprLit")];
@@ -286,10 +284,31 @@ int  expr_bin_type_check(struct sym_table *table, struct node *root, vector<stri
         return 0;
       }
       types.push_back(type);
-      return 1;
     }
 
   }
+  return 1;
+}
+
+int expr_flow_type_check(struct sym_table *table, struct node *n, vector<string> &types){
+  if(strcmp(n->elems[1]->name, "ExprBinary")==0){
+      int ret = expr_bin_type_check(table, n->elems[1],types);
+      if(!ret){
+        stringstream ss;
+        ss<<"Invalid types for binary operation in the flow control predicate"<<endl;
+        semantic_errors.push_back(ss.str());
+      }
+      else if(ret==1)
+      {
+        for(int i=0;i<types.size()-1;i++){
+          if(id_map[types[i]]!=id_map[types[i+1]]){
+            stringstream ss;
+            ss<<"Invalid types for binary operation in the flow control predicate"<<endl;
+            semantic_errors.push_back(ss.str());
+          }
+        }
+      }
+    }
 }
 
 void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *scope){
@@ -300,12 +319,22 @@ void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *
     new_scope->parent = table;
     status=insert_symbol(table, n->elems[0]->elems[0]->name,"func_decl",new_scope);
   }
-else if(strcmp(n->name, "DeclLocal")==0){
+  else if(strcmp(n->name, "DeclLocal")==0){
         int flag=1;
         string name = find_in_ast(n->elems[0],"ident");
         string type = find_in_ast(n->elems[1], "ident");
+
+        if(table->symbols.find(name)!=table->symbols.end())
+        {
+          flag=0;
+
+          stringstream ss;
+          ss<<"Redeclaration of "<<name<<endl;
+          semantic_errors.push_back(ss.str());
+
+        }
         
-        if(type.size()!=0&&id_map.find(type)==id_map.end())
+        else if(type.size()!=0&&id_map.find(type)==id_map.end())
         {
           flag=0;
           stringstream ss;
@@ -331,10 +360,26 @@ else if(strcmp(n->name, "DeclLocal")==0){
                   ss<<"Declaration of "<<name<<" invalid, types mismatch"<<endl;
                   semantic_errors.push_back(ss.str());
                 }
+              }
         }
-      }
+        if(strcmp(n->elems[2]->name,"ExprPath")==0){
+          string infer = find_in_ast(n->elems[2],"ident");
+          infer = lookup_table(table,infer);
+          if(type.size()==0 && infer.size()!=0){
+                type = infer;
+              }
+              else if(type.size()==0&&infer.size()==0)
+                flag=0; //dont insert into symbol table
+              else{
+                if(id_map[type]!=id_map[infer]){
+                  flag=0;
+                  stringstream ss;
+                  ss<<"Declaration of "<<name<<" invalid, types mismatch"<<endl;
+                  semantic_errors.push_back(ss.str());
+                }
+              }
+        }
         if(strcmp(n->elems[2]->name,"ExprBinary")==0){
-          cout<<"in binary expression\n";
           vector<string> types;
           int ret = expr_bin_type_check(table, n->elems[2], types);
 
@@ -383,7 +428,7 @@ else if(strcmp(n->name, "DeclLocal")==0){
               {
               flag=0;
               stringstream ss;
-              ss<<"Type mis match in declaration of "<<name<<" LHS TYPE "<<type<<"RHS TYPE "<<types[0]<<endl;
+              ss<<"Type mis match in declaration of "<<name<<" LHS TYPE "<<type<<" RHS TYPE "<<types[0]<<endl;
               semantic_errors.push_back(ss.str());
               }
             
@@ -399,23 +444,36 @@ else if(strcmp(n->name, "DeclLocal")==0){
           status=insert_symbol(table, name, type, scope);
         
         }
+  }
 
-        
-  
-}
+  else if(strcmp(n->name,"ExprIf")==0){
+    vector<string> types;
+    expr_flow_type_check(table, n->elems[0],types);
+  }
+
+  else if(strcmp(n->name,"ExprWhile")==0){
+    vector<string> types;
+    expr_flow_type_check(table, n->elems[1],types); 
+  }
+
+
+
   else if(strcmp(n->name, "ExprAssign")==0){
     int flag = 1;
     string name = find_in_ast(n->elems[0],"ident");
     string status = lookup_table(table, name);
     if(!status.size())
       flag=0;
+    else
+    {
+
     string type, ident;
     if(strcmp(n->elems[1]->name, "ExprLit")==0)
       {
         type = find_in_ast(n->elems[1], "ExprLit");
         type = id_map[type];
 
-        if(status!=type)
+        if(status!=type && flag)
         {
           flag=0;
           stringstream ss;
@@ -448,17 +506,16 @@ else if(strcmp(n->name, "DeclLocal")==0){
             flag=0;
             rhs_type_flag=0;
             stringstream ss;
-            ss<<"Expression involving declaration of "<<name<<" is invalid"<<endl;
+            ss<<"Expression involving assignment of "<<name<<" is invalid"<<endl;
             semantic_errors.push_back(ss.str());
           }
         }
 
-        string type = lookup_table(table, name);
-        if (rhs_type_flag&&!(type==types[0]))
+        if (rhs_type_flag&&!(status==types[0]))
         {
           flag=0;
           stringstream ss;
-          ss<<"Type mis match in assignement of "<<name<<" LHS TYPE "<<type<<" RHS TYPE "<<types[0]<<endl;
+          ss<<"Type mismatch in assignement of "<<name<<" LHS TYPE "<<status<<" RHS TYPE "<<types[0]<<endl;
           semantic_errors.push_back(ss.str());
 
 
@@ -467,7 +524,9 @@ else if(strcmp(n->name, "DeclLocal")==0){
 
       }
     }
+  }
     if(flag){
+      string type = id_map[status];
       insert_symbol(table, name, id_map[type], scope);
     }
   }
@@ -505,6 +564,34 @@ void print_node(struct node *n, int depth) {
   }
 }
 
+void print_ast(struct node *n, int depth){
+  int i=0;
+ // print_indent(depth);
+  if (strcmp(n->name,"ident") == 0) {
+    // cout<<"Printing depth-"<<depth<<endl;
+    print_indent(depth);
+    print("%s\n", n->elems[0]->name);
+
+  }
+  else{
+    int step=0;
+    if(strcmp(n->name,"ExprBinary")==0){
+      print_indent(depth);
+      print("(%s\n",n->elems[0]->name);
+      step=indent_step;
+      // cout<<"Traversing step - "<<depth+step<<endl;
+      }
+      for (i = 0; i < n->n_elems; ++i) {
+      print_ast(n->elems[i], depth + step);
+      }
+      if(strcmp(n->name,"ExprBinary")==0){
+        // cout<<"Closing depth- "<<depth<<endl;
+      print_indent(depth);
+      print(")\n");
+    }
+  }
+}
+
 void print_semantic_errors(){
   for(auto i: semantic_errors){
     cout<<i;
@@ -528,11 +615,16 @@ int main(int argc, char **argv) {
   if (nodes) {
     print_node(nodes, 0);
   }
+  if(ret==0)
+  {
   printf("Building symbol table with root %p\n",global_sym_table);
   build_sym_table(global_sym_table, nodes, global_sym_table);
   print_symbol_table(global_sym_table,0);
   printf("No. of semantic errors : %ld\n",semantic_errors.size());
   print_semantic_errors();
+  cout<<"Abstract Syntax Tree\n";
+  print_ast(nodes,0);
+  }
   while (nodes) {
     tmp = nodes;
     nodes = tmp->next;
