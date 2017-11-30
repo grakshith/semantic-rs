@@ -1,7 +1,7 @@
 fn main() {
     let x = "asd";
     let logical: bool = true;
-    let z = makx+x+x+x+x+x+a;
+    let z = x+x+x+x+x+x+1;
     let a_float: i64 = 1.0;  // Regular annotation
     z=x+1+y; // Suffix annotation
     let y=x+a;

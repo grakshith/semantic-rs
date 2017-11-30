@@ -35,7 +35,11 @@ map<string,string> id_map = {
   {"LitBool","bool"},
   {"LitFloat","float"},
   {"LitInteger","integer"},
-  {"bool", "bool"}
+  {"bool", "bool"},
+  {"integer","integer"},
+  {"string","string"},
+  {"float","float"},
+  {"bool","bool"}
 };
 
 vector<string> semantic_errors;
@@ -83,6 +87,7 @@ struct node {
   char const *name;
   int n_elems;
   struct node *elems[];
+  int line_no;
 };
 
 struct node *nodes = NULL;
@@ -186,7 +191,6 @@ bool insert_symbol(struct sym_table *table, string name, string type, struct sym
 }
 
 string lookup_table(struct sym_table *table, string name){
-  cout<<name<<endl;
   while(table && name.size()){
     for(auto it = table->symbols.begin(); it!=table->symbols.end(); it++){
       if(name==it->first){
@@ -237,6 +241,9 @@ string find_in_ast(struct node *n, string key){
 }
 
 int  expr_bin_type_check(struct sym_table *table, struct node *root, vector<string> &types){
+  //returns zero in case of error, 1 otherwise
+
+
   for(int i=0;i<root->n_elems;i++){
     if(strcmp(root->elems[i]->name, "ExprBinary")==0){
       int ret = expr_bin_type_check(table, root->elems[1], types);
@@ -245,29 +252,39 @@ int  expr_bin_type_check(struct sym_table *table, struct node *root, vector<stri
     }
     else if(strcmp(root->elems[i]->name, "ExprPath")==0){
       // ident 1
-      // cout<<root->elems[1]->name<<endl;
-      string ident = find_in_ast(root->elems[1], "ident");
+      // cout<<root->elems[1]->name<<" "<<root->elems[2]->name<<endl;
+      
+      string ident = find_in_ast(root->elems[i], "ident");
       string type = lookup_table(table, ident);
       if(!type.size()){
         return 0;
       }
       types.push_back(type);
       // ident 2
-      string ident2 = find_in_ast(root->elems[2], "ident");
-      //string lit = find_in_ast(root->elems[2],)
-      string type2 = lookup_table(table, ident2);
-      if(!type2.size()){
-        return 0;
-      }
-      types.push_back(type2);
+      // string ident2,type2;
+      // if(strcmp(root->elems[2]->name,"ExprLit")==0){
+      //   ident2 = find_in_ast(root->elems[2], "ExprLit");
+      //   type2 = id_map[ident2];
+      // }
+      // else if(strcmp(root->elems[2]->name,"ExprPath")==0){
+      //   ident2 = find_in_ast(root->elems[2], "ident");
+      //   //string lit = find_in_ast(root->elems[2],)
+      //   type2 = lookup_table(table, ident2);
+      // }
+      // if(!type2.size()){
+      //   return 0;
+      // }
+      // types.push_back(type2);
       return 1;
     }
     else if(strcmp(root->elems[i]->name, "ExprLit")==0){
-      string type = find_in_ast(root->elems[i],"ExprLit");
-      string type2 = find_in_ast(root->elems[i+1], "ExprLit");
-      if(type != type2){
+      string type = id_map[find_in_ast(root->elems[i],"ExprLit")];
+      // string type2 = id_map[find_in_ast(root->elems[i+1], "ExprLit")];
+      if(!type.size()){
         return 0;
       }
+      types.push_back(type);
+      return 1;
     }
 
   }
@@ -332,7 +349,6 @@ void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *
       type = find_in_ast(n->elems[1], "ExprLit");
     if(strcmp(n->elems[1]->name, "ExprPath")==0){
       ident = find_in_ast(n->elems[1]->elems[0], "ident");
-      cout<<"Looking up "<<ident<<endl; 
       string type = lookup_table(table, ident);
       if(!type.size())
         flag=0;
