@@ -1,0 +1,11 @@
+//invalid type
+
+fn main() {
+    
+     let x: my_type = "2";
+ 
+     let str: strng;
+
+     
+}
+

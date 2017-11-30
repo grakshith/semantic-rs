@@ -1,0 +1,18 @@
+//type checking in expressions
+
+fn main() {
+    
+     let i = 1;
+     let f = 2.0;
+
+     let z = i + f;
+
+      let j = i + i + 1;
+
+
+     let g: f64 = j;
+
+     
+
+     
+}

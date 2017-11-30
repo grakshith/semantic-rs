@@ -1,0 +1,24 @@
+//uniqueness of declaration
+
+fn main() {
+    
+     let x = 5;
+     
+
+
+
+     // fn inner_func()
+
+	//{
+
+		let x = 2 + 3;
+
+     //}
+
+
+
+}
+
+
+
+

@@ -1,0 +1,21 @@
+//looping construct expression
+
+fn main()
+{
+
+	let x: i64 = 2;
+	let y: i64 = 3;
+	let z: f64;
+
+	while x>1.0 && y<z
+
+	{
+		
+           x = x + y; 
+	   i = i + 1;
+	   
+        }
+
+
+
+}

@@ -1,0 +1,24 @@
+//scoping
+
+fn main() {
+    
+     let x = 5;
+     
+     let y = 3;
+
+
+     fn inner_func()
+
+	{
+
+		let z = x + y;
+		
+
+     }
+
+   //z = 2;
+
+
+
+}
+

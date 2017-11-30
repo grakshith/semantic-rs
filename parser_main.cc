@@ -291,9 +291,12 @@ int  expr_bin_type_check(struct sym_table *table, struct node *root, vector<stri
 }
 
 int expr_flow_type_check(struct sym_table *table, struct node *n, vector<string> &types){
+  int flag=1;
   if(strcmp(n->elems[1]->name, "ExprBinary")==0){
+    
       int ret = expr_bin_type_check(table, n->elems[1],types);
       if(!ret){
+        flag=0;
         stringstream ss;
         ss<<"Invalid types for binary operation in the flow control predicate"<<endl;
         semantic_errors.push_back(ss.str());
@@ -302,6 +305,7 @@ int expr_flow_type_check(struct sym_table *table, struct node *n, vector<string>
       {
         for(int i=0;i<types.size()-1;i++){
           if(id_map[types[i]]!=id_map[types[i+1]]){
+            flag=0;
             stringstream ss;
             ss<<"Invalid types for binary operation in the flow control predicate"<<endl;
             semantic_errors.push_back(ss.str());
@@ -309,10 +313,13 @@ int expr_flow_type_check(struct sym_table *table, struct node *n, vector<string>
         }
       }
     }
-}
 
-void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *scope){
+    return flag;
+}
+int global_flag=1;
+int build_sym_table(struct sym_table *table, struct node *n, struct sym_table *scope){
   struct sym_table *new_scope=NULL;
+  
   bool status;
   if(strcmp(n->name, "ItemFn")==0){
     new_scope= new sym_table();
@@ -440,20 +447,35 @@ void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *
         
         if(flag)
         {
+          
           type = id_map[type];
           status=insert_symbol(table, name, type, scope);
         
+        }
+
+        else
+        {
+          global_flag=0;
         }
   }
 
   else if(strcmp(n->name,"ExprIf")==0){
     vector<string> types;
-    expr_flow_type_check(table, n->elems[0],types);
+    int flag =expr_flow_type_check(table, n->elems[0],types);
+    if(flag==0)
+    {
+      global_flag=0;
+    }
   }
 
   else if(strcmp(n->name,"ExprWhile")==0){
     vector<string> types;
-    expr_flow_type_check(table, n->elems[1],types); 
+    int flag = expr_flow_type_check(table, n->elems[1],types); 
+
+    if(flag==0)
+    {
+      global_flag=0;
+    }
   }
 
 
@@ -526,8 +548,15 @@ void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *
     }
   }
     if(flag){
+      
       string type = id_map[status];
       insert_symbol(table, name, id_map[type], scope);
+    }
+
+    else
+    {
+     
+      global_flag=0;
     }
   }
   if(new_scope){
@@ -537,6 +566,8 @@ void build_sym_table(struct sym_table *table, struct node *n, struct sym_table *
   for(int i=0;i<n->n_elems;i++){
     build_sym_table(table, n->elems[i], scope);
   }
+
+  return global_flag;
 }
 
 void print_symbol_table(struct sym_table *table, int depth){
@@ -571,6 +602,12 @@ void print_ast(struct node *n, int depth){
     // cout<<"Printing depth-"<<depth<<endl;
     print_indent(depth);
     print("%s\n", n->elems[0]->name);
+
+  }
+  else if (strcmp(n->name,"ExprLit") == 0)
+  {
+    print_indent(depth);
+    print("%s\n", n->elems[0]->elems[0]->name);
 
   }
   else{
@@ -618,12 +655,19 @@ int main(int argc, char **argv) {
   if(ret==0)
   {
   printf("Building symbol table with root %p\n",global_sym_table);
-  build_sym_table(global_sym_table, nodes, global_sym_table);
+  int status = build_sym_table(global_sym_table, nodes, global_sym_table);
   print_symbol_table(global_sym_table,0);
   printf("No. of semantic errors : %ld\n",semantic_errors.size());
+  
   print_semantic_errors();
-  cout<<"Abstract Syntax Tree\n";
-  print_ast(nodes,0);
+  
+
+  
+  if(status==1)
+  {
+    cout<<"Abstract Syntax Tree\n";
+    print_ast(nodes,0);
+  }
   }
   while (nodes) {
     tmp = nodes;

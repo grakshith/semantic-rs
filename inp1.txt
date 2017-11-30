@@ -1,0 +1,10 @@
+//basic type checking
+
+fn main() {
+    
+     let x: i64;
+	
+     x = 2.0;
+
+}
+	
