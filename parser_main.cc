@@ -87,7 +87,7 @@ struct node {
   char const *name;
   int n_elems;
   struct node *elems[];
-  int line_no;
+  // int line_no;
 };
 
 struct node *nodes = NULL;
@@ -411,7 +411,20 @@ else if(strcmp(n->name, "DeclLocal")==0){
       flag=0;
     string type, ident;
     if(strcmp(n->elems[1]->name, "ExprLit")==0)
-      type = find_in_ast(n->elems[1], "ExprLit");
+      {
+        type = find_in_ast(n->elems[1], "ExprLit");
+        type = id_map[type];
+
+        if(status!=type)
+        {
+          flag=0;
+          stringstream ss;
+          ss<<"Type mis match in assignement of "<<name<<" LHS TYPE "<<status<<" RHS TYPE "<<type<<endl;
+          semantic_errors.push_back(ss.str());
+
+        }
+
+      }
     if(strcmp(n->elems[1]->name, "ExprPath")==0){
       ident = find_in_ast(n->elems[1]->elems[0], "ident");
       string type = lookup_table(table, ident);
@@ -429,14 +442,29 @@ else if(strcmp(n->name, "DeclLocal")==0){
       }
       else if(ret==1)
       {
+        int rhs_type_flag=1; //rhs types are assumed to be valid
         for(int i=0;i<types.size()-1;i++){
           if(id_map[types[i]]!=id_map[types[i+1]]){
             flag=0;
+            rhs_type_flag=0;
             stringstream ss;
             ss<<"Expression involving declaration of "<<name<<" is invalid"<<endl;
             semantic_errors.push_back(ss.str());
           }
         }
+
+        string type = lookup_table(table, name);
+        if (rhs_type_flag&&!(type==types[0]))
+        {
+          flag=0;
+          stringstream ss;
+          ss<<"Type mis match in assignement of "<<name<<" LHS TYPE "<<type<<" RHS TYPE "<<types[0]<<endl;
+          semantic_errors.push_back(ss.str());
+
+
+        }
+
+
       }
     }
     if(flag){
