@@ -1,5 +1,5 @@
 # semantic-rs
-Naive implementation of type checking for the rust language.
+Naive implementation of type checking for the rust language. Builds a syntax tree and symbol table for analysis.
 
 ## Compilation
 1. `$ mkdir bin build`
