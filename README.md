@@ -1,5 +1,6 @@
 # semantic-rs
 Naive implementation of type checking for the rust language. Builds a syntax tree and symbol table for analysis.
+Course project for IT-303 Automata and Compiler design course at NITK.
 
 ## Compilation
 1. `$ mkdir bin build`
